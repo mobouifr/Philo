@@ -38,6 +38,7 @@ typedef struct s_args
 	pthread_mutex_t	print_lock;
 	pthread_mutex_t	died_philo;
 	pthread_mutex_t	last_meal_mutex;
+	pthread_mutex_t	meal_eaten_mutex;
 	size_t	break_routine;
 	size_t	kill_philo;
 	size_t	start_time;

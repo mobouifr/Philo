@@ -139,8 +139,9 @@ void	eating(t_philo *philosophers)
 	print_state(philosophers, time, "is eating");
 	philosophers->last_meal_time = get_time();//test
 	ft_usleep(philosophers->args->time_to_eat);
+	pthread_mutex_lock(&philosophers->args->print_lock);
 	philosophers->meals_eaten++;
-
+	pthread_mutex_unlock(&philosophers->args->print_lock);
 	pthread_mutex_unlock(left_hand);
 	pthread_mutex_unlock(right_hand);
 
@@ -168,8 +169,10 @@ void	sleeping(t_philo *philosophers)
 int is_full(t_philo philosophers)
 {
 	//lock
+	pthread_mutex_lock(&philosophers.args->print_lock);
 	int b = philosophers.args->has_optional_argument 
 			&& philosophers.meals_eaten >= philosophers.args->number_of_times_each_philosopher_must_eat;
+	pthread_mutex_unlock(&philosophers.args->print_lock);
 	return b;
 }
 
@@ -213,7 +216,9 @@ void	*routine(void *arg)
 int is_dead(t_args *args, size_t i)
 {
 	//lock meal
+	pthread_mutex_lock(&args->last_meal_mutex);
 	int b = get_time() - args->philosophers[i].last_meal_time > args->time_to_die;
+	pthread_mutex_unlock(&args->last_meal_mutex);
 	//unlock meal
 	return b;
 }
