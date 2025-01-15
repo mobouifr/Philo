@@ -1,14 +1,21 @@
 #include "philo.h"
 
 void	print_state(t_philo *philosophers, size_t time, char *state)
-{	
-	if (philosophers->args->kill_philo == 1 || philosophers->args->break_routine == 0)
+{
+	//
+	//
+	pthread_mutex_lock(&philosophers->args->died_philo);
+	pthread_mutex_lock(&philosophers->args->print_lock);
+	if (philosophers->args->kill_philo == 1)
 	{
-		printf("%zu %d %s\n", get_time() - time, philosophers->id + 1, state);
 		pthread_mutex_unlock(&philosophers->args->print_lock);
-		return ;
+		pthread_mutex_unlock(&philosophers->args->died_philo);
+		return ;		
 	}
+	// if (philosophers->args->break_routine == 0)
+	printf("%zu %lu %s\n", get_time() - time, philosophers->id + 1, state);
 	pthread_mutex_unlock(&philosophers->args->print_lock);
+	pthread_mutex_unlock(&philosophers->args->died_philo);
 
 }
 
@@ -27,7 +34,7 @@ void	ft_usleep(size_t time)
 	start = get_time();
 	while ((get_time() - start) < time)
 	{
-		usleep(200);
+		usleep(500);
 	}
 }
 
@@ -67,7 +74,7 @@ void	init_philosophers(t_args *args)
 {
 	args->philosophers = malloc(sizeof(t_philo) * args->number_of_philosophers);
 	args->forks = malloc(sizeof(pthread_mutex_t) * args->number_of_philosophers);
-	unsigned int i = 0;
+	size_t i = 0;
 	while (i < args->number_of_philosophers)
 	{
 		pthread_mutex_init(&args->forks[i], NULL);
@@ -76,7 +83,7 @@ void	init_philosophers(t_args *args)
 		args->philosophers[i].right_fork = &args->forks[(i + 1) % args->number_of_philosophers];
 		args->philosophers[i].args = args;
 		args->philosophers[i].args->program_start_time = get_time();
-		args->philosophers[i].last_meal_time = 0;
+		args->philosophers[i].last_meal_time = get_time();
 		i++;
 	}
 	pthread_mutex_init(&args->print_lock, NULL);
@@ -120,7 +127,7 @@ void	eating(t_philo *philosophers)
 		}
 		pthread_mutex_unlock(&philosophers->args->died_philo);
 	//
-	if (philosophers->id % 2 != 0)
+	if (philosophers->id % 2 == 0)
 	{
 		left_hand = philosophers->right_fork;
 		right_hand = philosophers->left_fork;
@@ -130,13 +137,15 @@ void	eating(t_philo *philosophers)
 	pthread_mutex_lock(right_hand);
 	print_state(philosophers, time, "has taken a fork");
 	print_state(philosophers, time, "is eating");
+	philosophers->last_meal_time = get_time();//test
 	ft_usleep(philosophers->args->time_to_eat);
-	philosophers->last_meal_time = get_time();
 	philosophers->meals_eaten++;
+
 	pthread_mutex_unlock(left_hand);
 	pthread_mutex_unlock(right_hand);
 
 }
+
 
 void	sleeping(t_philo *philosophers)
 {
@@ -156,6 +165,14 @@ void	sleeping(t_philo *philosophers)
 	ft_usleep(philosophers->args->time_to_sleep);
 }
 
+int is_full(t_philo philosophers)
+{
+	//lock
+	int b = philosophers.args->has_optional_argument 
+			&& philosophers.meals_eaten >= philosophers.args->number_of_times_each_philosopher_must_eat;
+	return b;
+}
+
 void	*routine(void *arg)
 {
 	t_philo *philosophers;
@@ -163,7 +180,10 @@ void	*routine(void *arg)
 
 	philosophers = (t_philo *)arg;
 	time = philosophers->args->program_start_time;
-	pthread_mutex_lock(&philosophers->args->print_lock);	
+
+	if (philosophers->id % 2 != 0)
+		ft_usleep(60);
+	pthread_mutex_lock(&philosophers->args->print_lock);
 	if (philosophers->args->number_of_philosophers == 1)
 	{
 		print_state(philosophers, time, "has taken a fork");
@@ -182,64 +202,75 @@ void	*routine(void *arg)
 		}
 		pthread_mutex_unlock(&philosophers->args->print_lock);
 		eating(philosophers);
+		if (is_full(*philosophers))
+			break ;
 		thinking(philosophers);
 		sleeping(philosophers);
 	}
 	return (NULL);
 }
 
+int is_dead(t_args *args, size_t i)
+{
+	//lock meal
+	int b = get_time() - args->philosophers[i].last_meal_time > args->time_to_die;
+	//unlock meal
+	return b;
+}
 
 void	*monitor_routine(void *arg)
 {
-	unsigned int	i;
+	size_t	i;
 	size_t time;
 	t_args *args;
 
 	args = (t_args *)arg;
 	time = args->program_start_time;
-	pthread_mutex_lock(&args->died_philo);
-	while (args->break_routine == 0 && args->number_of_philosophers != 1)
+	while (1)
 	{
 		i = 0;
 		while (i < args->number_of_philosophers)
 		{
-			if (get_time() - args->philosophers[i].last_meal_time > args->time_to_die)
+			pthread_mutex_lock(&args->died_philo);
+			if (!is_full(args->philosophers[i]) && is_dead(args, i))
 			{
-				args->break_routine = 0;
-				printf("%zu %d %s\n", get_time() - time, args->philosophers[i].id + 1, "died");
+				pthread_mutex_lock(&args->print_lock);
+				printf("%zu %lu %s\n", get_time() - time, args->philosophers[i].id + 1, "died");
 				args->kill_philo = 1;
+				pthread_mutex_unlock(&args->print_lock);
 				pthread_mutex_unlock(&args->died_philo);
 				return (NULL);
 			}
 			pthread_mutex_unlock(&args->died_philo);
+			usleep(500);
 			i++;
 		}
-		// if (args->has_optional_argument)
-		// {
-		// 	i = 0;
-		// 	while (i < args->number_of_philosophers)
-		// 	{
-		// 		pthread_mutex_lock(&args->print_lock);
-		// 		if (args->philosophers[i].meals_eaten < args->number_of_times_each_philosopher_must_eat)
-		// 		{
-		// 			pthread_mutex_unlock(&args->print_lock);
-		// 			return (NULL);
-		// 		}
-		// 		pthread_mutex_unlock(&args->print_lock);
-		// 		i++;
-		// 	}
-		// 	args->break_routine = 1;
-		// 	return (NULL);
-		// }
-
+		if (args->has_optional_argument)
+		{
+			i = 0;
+			args->break_routine = 1;
+			while (i < args->number_of_philosophers)
+			{
+				if (args->philosophers[i].meals_eaten < args->number_of_times_each_philosopher_must_eat)
+				{
+					args->break_routine = 0;
+					break ;
+				}
+				i++;
+				usleep(500);
+			}
+			if (args->break_routine == 1)
+				return (NULL);
+		}
+		usleep(500);
 	}
+	// pthread_mutex_unlock(&args->died_philo);
 	return (NULL);
 }
 
 void	creat_philosophers(t_args *args)
 {
-	unsigned int	i;
-	pthread_t	monitor;
+	size_t	i;
 
 	i = 0;
 	while (i < args->number_of_philosophers)
@@ -247,19 +278,20 @@ void	creat_philosophers(t_args *args)
 		pthread_create(&args->philosophers[i].thread, NULL, (void *)routine, &args->philosophers[i]);
 		i++;
 	}
-	pthread_create(&monitor, NULL, (void *)monitor_routine, args);
-	pthread_join(monitor, NULL);
+	monitor_routine(args);
 	i = 0;
 	while (i < args->number_of_philosophers)
 	{
 		pthread_join(args->philosophers[i].thread, NULL);
 		i++;
 	}
+	// if (args->number_of_philosophers % 2 != 0)
+	// 	ft_usleep(1);
 }
 
 void	clean_up(t_args *args)
 {
-	unsigned int	i;
+	size_t	i;
 
 	i = 0;
 	while (i < args->number_of_philosophers)

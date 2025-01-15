@@ -17,9 +17,9 @@
 
 typedef struct s_philo
 {
-	unsigned int	id;
-	unsigned int	meals_eaten;
-	unsigned int	last_meal_time;
+	size_t	id;
+	size_t	meals_eaten;
+	size_t	last_meal_time;
 	pthread_t		thread;
 	pthread_mutex_t	*left_fork;
 	pthread_mutex_t	*right_fork;
@@ -28,20 +28,20 @@ typedef struct s_philo
 
 typedef struct s_args
 {
-	unsigned int	number_of_philosophers;
-	unsigned int	time_to_die;
-	unsigned int	time_to_eat;
-	unsigned int	time_to_sleep;
-	unsigned int	number_of_times_each_philosopher_must_eat;
-	unsigned int	has_optional_argument;
+	size_t	number_of_philosophers;
+	size_t	time_to_die;
+	size_t	time_to_eat;
+	size_t	time_to_sleep;
+	size_t	number_of_times_each_philosopher_must_eat;
+	size_t	has_optional_argument;
 	pthread_mutex_t	*forks;
 	pthread_mutex_t	print_lock;
 	pthread_mutex_t	died_philo;
 	pthread_mutex_t	last_meal_mutex;
-	unsigned int	break_routine;
-	unsigned int	kill_philo;
-	unsigned int	start_time;
-	size_t			program_start_time;
+	size_t	break_routine;
+	size_t	kill_philo;
+	size_t	start_time;
+	size_t	program_start_time;
 	t_philo			*philosophers;
 }					t_args;
 
