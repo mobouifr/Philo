@@ -40,7 +40,7 @@ int	creat_philosophers(t_args *args)
 	i = 0;
 	while (i < args->number_of_philosophers)
 	{
-		if (pthread_create(&args->philosophers[i].thread, NULL, (void *)routine,
+		if (pthread_create(&args->philosophers[i].thread, NULL, routine,
 				&args->philosophers[i]) != 0)
 		{
 			printf("Error: Failed to create thread");
